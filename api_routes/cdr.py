@@ -36,7 +36,7 @@ def query_cdr():
                     "data": [],
                     "page_count": result.page_count,
                     "total_record": result.total_record,
-                    "total_charge": result.total_charge,
+                    "total_charge": str(result.total_charge) if result.total_charge is not None else None,
                 }
             )
         else:
@@ -54,7 +54,7 @@ def query_cdr():
                     "data": rows,
                     "page_count": result.page_count,
                     "total_record": result.total_record,
-                    "total_charge": result.total_charge,
+                    "total_charge": str(result.total_charge) if result.total_charge is not None else None,
                 }
             )
     except Exception as e:

@@ -127,7 +127,44 @@ function renderBalanceLedgerPivot(rows) {
     }
 }
 
-function renderRows(rows, type = "recharge") {
+/** 渲染结果摘要栏 */
+function renderResultSummary(rows, type) {
+    var summary = document.getElementById("resultSummary");
+    if (!summary) return;
+    if (!rows || rows.length === 0) { summary.style.display = "none"; return; }
+    var total = rows.length;
+    var successCount = 0, failCount = 0;
+    for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        if (type === "recharge") {
+            if (r.gift_success === true) successCount++; else failCount++;
+        } else if (type === "suspend") {
+            var st = r.status || "";
+            if (st.indexOf("成功") !== -1) successCount++;
+            else if (st.indexOf("失败") !== -1 || st.indexOf("不能停机") !== -1) failCount++;
+        } else if (type === "cancel") {
+            if (r.cancel_type === "success") successCount++; else failCount++;
+        } else if (type === "resume") {
+            if (r.resume_success === true) successCount++;
+            else if (r.can_resume === false) failCount++;
+        } else if (type === "cancel_account") {
+            if (r.can_cancel === true) successCount++; else failCount++;
+        } else if (type === "cdr" || type === "cdr_total") {
+            successCount = total;
+        } else if (type === "balance" || type === "balance_ledger") {
+            var msg = r.message || "";
+            if (msg.indexOf("失败") === -1) successCount++; else failCount++;
+        } else {
+            successCount = total;
+        }
+    }
+    summary.style.display = "flex";
+    summary.innerHTML = '<div class="stat"><span class="stat-dot blue"></span> 共 <b>' + total + '</b></div>' +
+        '<div class="stat"><span class="stat-dot green"></span> 成功 <b>' + successCount + '</b></div>' +
+        '<div class="stat"><span class="stat-dot red"></span> 失败 <b>' + failCount + '</b></div>';
+}
+
+function renderRows(rows, type) {
     const body = document.getElementById("resultBody");
     body.innerHTML = "";
 

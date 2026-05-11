@@ -195,7 +195,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
       });
       const result = await res.json();
       if (result.success) {
-         document.getElementById('sqlResult').value = result.sql;
+         document.getElementById('sqlResult').value = result.data;
       } else {
          alert('生成失败: ' + result.message);
       }

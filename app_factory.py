@@ -37,7 +37,7 @@ def create_app(config_class=Config) -> Flask:
     from api_routes.balance import balance_bp
     from api_routes.cdr import cdr_bp
     from api_routes.sql import sql_bp
-    from api_routes.database import db_bp
+    from api_routes.login_helper import login_bp
 
     app.register_blueprint(page_bp)
     app.register_blueprint(recharge_bp)
@@ -48,7 +48,7 @@ def create_app(config_class=Config) -> Flask:
     app.register_blueprint(balance_bp)
     app.register_blueprint(cdr_bp)
     app.register_blueprint(sql_bp)
-    app.register_blueprint(db_bp)
+    app.register_blueprint(login_bp)
 
     # 注册错误处理
     register_error_handlers(app)

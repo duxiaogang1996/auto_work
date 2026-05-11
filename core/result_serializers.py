@@ -62,6 +62,14 @@ def serialize_suspend_result(r) -> dict:
         "phone": r.phone,
         "status": status_text,
         "should_suspend": r.should_suspend,
+        "balance": _safe_str(r.balance),
+        "plan_name": r.plan_name,
+        "plan_amount": _safe_str(r.plan_amount),
+        "user_status": r.user_status,
+        "message": r.message,
+        "suspend_requested": r.suspend_requested,
+        "suspend_success": r.suspend_success,
+        "suspend_message": r.suspend_message,
     }
 
 

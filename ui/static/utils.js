@@ -117,7 +117,7 @@ async function _postJson(path, body) {
     return { ok: resp.ok, status: resp.status, data: data, parse_error: null };
 }
 
-function addLog(text) {
+function addLog(text, level) {
     const card = document.getElementById("logCard");
     const area = document.getElementById("logArea");
     if (!card || !area) return;
@@ -126,8 +126,24 @@ function addLog(text) {
     const hh = String(now.getHours()).padStart(2, "0");
     const mm = String(now.getMinutes()).padStart(2, "0");
     const ss = String(now.getSeconds()).padStart(2, "0");
+    var cls = "log-info";
+    if (level === "success" || level === "ok") cls = "log-success";
+    else if (level === "error" || level === "err") cls = "log-error";
+    else if (level === "warn" || level === "warning") cls = "log-warn";
     area.textContent += "[" + hh + ":" + mm + ":" + ss + "] " + text + "\n";
-    area.scrollTop = area.scrollHeight;
+    // Color the last line
+    if (cls !== "log-info") {
+        var lines = area.textContent.split("\n");
+        var lastIdx = lines.length - 2;
+        if (lastIdx >= 0) {
+            lines[lastIdx] = '<span class="' + cls + '">' + lines[lastIdx] + '</span>';
+            area.innerHTML = lines.join("\n");
+        }
+    }
+    var autoScroll = document.getElementById("autoScrollCheck");
+    if (!autoScroll || autoScroll.checked) {
+        area.scrollTop = area.scrollHeight;
+    }
 }
 
 function boolText(v) {
@@ -208,20 +224,61 @@ function _formatDate(d) {
 }
 
 // 日志清空 / 中断按钮
-document.addEventListener("DOMContentLoaded", () => {
-    const clearBtn = document.getElementById("clearLogBtn");
+document.addEventListener("DOMContentLoaded", function() {
+    var clearBtn = document.getElementById("clearLogBtn");
     if (clearBtn) {
-        clearBtn.addEventListener("click", () => {
-            const area = document.getElementById("logArea");
+        clearBtn.addEventListener("click", function() {
+            var area = document.getElementById("logArea");
             if (area) area.textContent = "";
         });
     }
-    const stopBtn = document.getElementById("stopRunBtn");
+    var stopBtn = document.getElementById("stopRunBtn");
     if (stopBtn) {
-        stopBtn.addEventListener("click", () => {
-            if (!_batchRunning) return;
-            _batchStopRequested = true;
-            addLog("已请求停止（将于当前号码处理完成后停止）");
+        stopBtn.addEventListener("click", function() {
+            if (typeof _batchRunning !== "undefined" && _batchRunning) {
+                if (typeof _batchStopRequested !== "undefined") _batchStopRequested = true;
+                addLog("已请求停止（将于当前号码处理完成后停止）", "warn");
+            }
         });
     }
 });
+
+// ===== Cookie 折叠/展开 =====
+function toggleCookieExpand() {
+    var ta = document.getElementById("cookie");
+    var btn = document.querySelector(".cookie-expand-btn");
+    if (!ta || !btn) return;
+    var isCollapsed = ta.classList.contains("collapsed");
+    if (isCollapsed) {
+        ta.classList.remove("collapsed");
+        btn.innerHTML = "&#9650;";
+    } else {
+        ta.classList.add("collapsed");
+        btn.innerHTML = "&#9660;";
+    }
+}
+
+// ===== 手机号计数 =====
+function updatePhoneCounter() {
+    var counter = document.getElementById("phoneCounter");
+    if (!counter) return;
+    var ta = document.getElementById("phones");
+    var text = ta ? ta.value : "";
+    var raw = text.replace(/\r\n/g, "\n").replace(/,/g, "\n");
+    var parts = raw.split("\n").map(function(s) { return s.trim(); }).filter(Boolean);
+    var unique = [];
+    var seen = {};
+    var invalid = [];
+    for (var i = 0; i < parts.length; i++) {
+        var p = parts[i];
+        if (seen[p]) continue;
+        seen[p] = true;
+        if (!/^1\d{10}$/.test(p)) invalid.push(p);
+        unique.push(p);
+    }
+    var html = "已识别 <span class='count-num'>" + unique.length + "</span> 个号码";
+    if (invalid.length > 0) {
+        html += "，<span class='invalid-num'>" + invalid.length + " 个格式异常</span>";
+    }
+    counter.innerHTML = html;
+}

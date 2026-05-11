@@ -29,21 +29,14 @@ class CancelAccountService(BatchPhoneService):
         )
 
     def check_single_phone(self, *, phone: str, cookie: str) -> CancelAccountCheckResult:
-        try:
-            balance_info = self._api.get_balance(phone=phone, cookie=cookie)
-            balance = balance_info.balance
-            can_cancel = balance is not None and balance >= Decimal("0")
-            return CancelAccountCheckResult(
-                phone=phone,
-                balance=balance,
-                can_cancel=can_cancel,
-            )
-        except Exception:
-            return CancelAccountCheckResult(
-                phone=phone,
-                balance=None,
-                can_cancel=False,
-            )
+        balance_info = self._api.get_balance(phone=phone, cookie=cookie)
+        balance = balance_info.balance
+        can_cancel = balance is not None and balance >= Decimal("0")
+        return CancelAccountCheckResult(
+            phone=phone,
+            balance=balance,
+            can_cancel=can_cancel,
+        )
 
     def check_phones(self, *, phones: list[str], cookie: str) -> list[CancelAccountCheckResult]:
         return self.process_phones(phones=phones, cookie=cookie)

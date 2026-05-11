@@ -22,7 +22,7 @@ def query_balance():
         detail_rows = balance_service.query_ledger_phones(phones=phones, cookie=cookie)
         rows = [serialize_balance_ledger_result(r) for r in detail_rows]
     else:
-        results = balance_service.query_simple_phones(phones=phones, cookie=cookie, bill_yyyymm_fallback=None)
+        results = balance_service.query_simple_phones(phones=phones, cookie=cookie)
         rows = [serialize_balance_simple_result(r) for r in results]
     return jsonify({"success": True, "data": rows})
 
@@ -58,7 +58,6 @@ def query_balance_one():
                 }
             ]
     else:
-        bill_yyyymm_val = str(bill_yyyymm).strip() if bill_yyyymm else None
-        r = balance_service.query_simple_single(phone=phone, cookie=cookie, bill_yyyymm_fallback=bill_yyyymm_val or None)
+        r = balance_service.query_simple_single(phone=phone, cookie=cookie)
         rows = [serialize_balance_simple_result(r)]
     return jsonify({"success": True, "data": rows})

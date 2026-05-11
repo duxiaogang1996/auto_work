@@ -53,11 +53,8 @@ class SuspendService(BatchPhoneService):
         return None
 
     def _infer_reason_code(self, plan_name: str | None) -> str:
-        if plan_name and "电信" in plan_name:
-            return "80"
-        if plan_name and "联通" in plan_name:
-            return "90"
-        return "90"
+        from .reason_codes import SuspendReasonCodes
+        return SuspendReasonCodes.infer(plan_name)
 
     def process_single_phone(self, *, phone: str, cookie: str, auto_suspend: bool) -> SuspendProcessResult:
         try:

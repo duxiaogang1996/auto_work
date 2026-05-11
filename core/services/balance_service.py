@@ -55,7 +55,7 @@ class BalanceService(BatchPhoneService):
             message=f"查询失败：{error}",
         )
 
-    def query_simple_single(self, *, phone: str, cookie: str, bill_yyyymm_fallback: str | None = None) -> BalanceQueryResult:
+    def query_simple_single(self, *, phone: str, cookie: str) -> BalanceQueryResult:
         """
         只查状态和余额：
         1) 先调用综合查询接口（API-4）：可取 套餐/状态/余额/激活时间
@@ -98,12 +98,11 @@ class BalanceService(BatchPhoneService):
                     message="综合查询失败，余额查询也失败：判定未开户",
                 )
 
-    def query_simple_phones(self, *, phones: list[str], cookie: str, bill_yyyymm_fallback: str | None = None) -> list[BalanceQueryResult]:
-        return self.process_phones(phones=phones, cookie=cookie, bill_yyyymm_fallback=bill_yyyymm_fallback)
+    def query_simple_phones(self, *, phones: list[str], cookie: str) -> list[BalanceQueryResult]:
+        return self.process_phones(phones=phones, cookie=cookie)
 
     def process_single_phone(self, *, phone: str, cookie: str, **kwargs) -> BalanceQueryResult:
-        bill_yyyymm_fallback = kwargs.get("bill_yyyymm_fallback")
-        return self.query_simple_single(phone=phone, cookie=cookie, bill_yyyymm_fallback=bill_yyyymm_fallback)
+        return self.query_simple_single(phone=phone, cookie=cookie)
 
     def query_ledger_single(
         self,
@@ -116,11 +115,12 @@ class BalanceService(BatchPhoneService):
         1) 先综合查询接口（API-4）取状态/余额/套餐/激活时间
         2) 若综合查询失败：
            - 再查余额查询接口（API-11 queryBalances）
-             - 若能查到：判定状态=已销户，继续获取账本明细
+             - 若能查到：判定状态=已销户，直接复用结果获取账本明细
              - 若查不到：判定状态=未开户
-        3) 综合查询成功后，仍需调用余额查询接口取账本明细
+        3) 综合查询成功后，调用余额查询接口取账本明细（仅一次调用）
         """
         base: BalanceQueryResult
+        fallback_qb: Any = None  # 已销户场景下已获取的余额查询结果，避免重复调用
         try:
             info = self._api.get_balance_menu1(phone=phone, cookie=cookie)
             base = BalanceQueryResult(
@@ -134,14 +134,14 @@ class BalanceService(BatchPhoneService):
             )
         except Exception:
             try:
-                qb = self._api.query_balances(phone=phone, cookie=cookie)
+                fallback_qb = self._api.query_balances(phone=phone, cookie=cookie)
                 base = BalanceQueryResult(
                     phone=phone,
-                    balance=qb.remain_amount,
+                    balance=fallback_qb.remain_amount,
                     plan_name=None,
                     user_status="已销户",
                     active_time=None,
-                    owe_amount=qb.owe_amount,
+                    owe_amount=fallback_qb.owe_amount,
                     message="综合查询失败，余额查询成功：判定已销户",
                 )
             except Exception:
@@ -158,8 +158,7 @@ class BalanceService(BatchPhoneService):
                     [],
                 )
 
-        try:
-            qb = self._api.query_balances(phone=phone, cookie=cookie)
+        def _build_rows(qb: Any) -> list[BalanceLedgerRow]:
             rows: list[BalanceLedgerRow] = []
             for r in qb.amount_rows:
                 rows.append(
@@ -215,7 +214,15 @@ class BalanceService(BatchPhoneService):
                         message="无账本明细",
                     )
                 )
-            return base, rows
+            return rows
+
+        # 已销户场景：复用之前 query_balances 的结果，避免重复调用
+        if fallback_qb is not None:
+            return base, _build_rows(fallback_qb)
+
+        try:
+            qb = self._api.query_balances(phone=phone, cookie=cookie)
+            return base, _build_rows(qb)
         except Exception as e:
             return (
                 BalanceQueryResult(

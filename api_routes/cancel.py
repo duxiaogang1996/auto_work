@@ -7,11 +7,11 @@ from core.result_serializers import serialize_cancel_result
 from ._helpers import parse_cookie_and_phones, parse_cookie_and_phone
 
 cancel_bp = Blueprint("cancel", __name__, url_prefix="/api/cancel")
+cancel_service = OrderCancelService()
 
 
 def _process_cookie_phones(cookie: str, phones: list[str]):
-    service = OrderCancelService()
-    results = service.process(cookie=cookie, phones=phones)
+    results = cancel_service.process(cookie=cookie, phones=phones)
     data = [serialize_cancel_result(r) for r in results]
     return jsonify({"success": True, "data": data})
 

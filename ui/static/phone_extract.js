@@ -77,22 +77,45 @@ function peAddGroup() {
             </div>
             <div class="row" style="margin: 0;">
                 <div class="col input-group">
+                    <label>模式</label>
+                    <select id="${groupId}_mode" onchange="peOnProvinceChange('${groupId}')" style="height: 36px; font-size: 14px;">
+                        <option value="include">包含 - 仅取选中城市的号码</option>
+                        <option value="exclude">排除 - 取除选中城市之外的号码</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row" style="margin: 0;">
+                <div class="col input-group">
                     <label>选择省份</label>
                     <select id="${groupId}_province" onchange="peOnProvinceChange('${groupId}')" style="height: 36px; font-size: 14px;">
                         ${provinceOptions}
                     </select>
                 </div>
             </div>
-            <div style="margin-top: 12px;">
+            <div style="margin-bottom: 10px;">
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+                    <input type="checkbox" id="${groupId}_allCities" onchange="peOnAllCitiesToggle('${groupId}')" style="width: auto; height: auto;">
+                    <span>不限城市（取该省份全部城市，共用下方默认数量）</span>
+                </label>
+            </div>
+            <div id="${groupId}_citySection" style="display: none; margin-top: 10px;">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                     <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
                         <input type="checkbox" id="${groupId}_selectAll" onchange="peToggleAllCities('${groupId}')" style="width: auto; height: auto;">
                         <span>全选</span>
                     </label>
-                    <span style="font-size: 13px; color: #999;">勾选城市后在右侧输入数量</span>
+                    <span id="${groupId}_cityHint" style="font-size: 12px; color: #999;">勾选城市后，右侧输入框填写该城市的数量</span>
                 </div>
                 <div id="${groupId}_cityList" style="max-height: 200px; overflow-y: auto; border: 1px solid #e4e7ed; border-radius: 4px; padding: 8px; background: #fff;">
                     <div style="color: #999; font-size: 13px; text-align: center; padding: 20px;">请先选择省份</div>
+                </div>
+            </div>
+            <div id="${groupId}_qtySection" style="display: none; margin: 12px 0 0 0;">
+                <div class="row" style="margin: 0;">
+                    <div class="col input-group" style="max-width: 200px;">
+                        <label>默认数量</label>
+                        <input type="number" id="${groupId}_defaultQty" min="1" value="100" style="height: 32px; font-size: 13px; width: 100%;">
+                    </div>
                 </div>
             </div>
         </div>
@@ -108,11 +131,31 @@ function peRemoveGroup(groupId) {
     }
 }
 
-function peOnProvinceChange(groupId) {
+function peOnAllCitiesToggle(groupId) {
+    const cb = document.getElementById(`${groupId}_allCities`);
+    const citySection = document.getElementById(`${groupId}_citySection`);
+    const qtySection = document.getElementById(`${groupId}_qtySection`);
+    if (!cb || !citySection) return;
+    const showCityList = !cb.checked;
+    citySection.style.display = showCityList ? 'block' : 'none';
+    if (qtySection) {
+        qtySection.style.display = cb.checked ? 'block' : 'none';
+    }
+}
+
+function getGroupMode(groupId) {
+    const modeSel = document.getElementById(`${groupId}_mode`);
+    return modeSel ? modeSel.value : 'include';
+}
+
+function renderCityList(groupId) {
     const provinceSel = document.getElementById(`${groupId}_province`);
     const cityList = document.getElementById(`${groupId}_cityList`);
+    const citySection = document.getElementById(`${groupId}_citySection`);
+    const allCitiesCb = document.getElementById(`${groupId}_allCities`);
     const selectAll = document.getElementById(`${groupId}_selectAll`);
-    if (!provinceSel || !cityList) return;
+    const hintSpan = document.getElementById(`${groupId}_cityHint`);
+    if (!provinceSel || !cityList || !citySection) return;
 
     if (selectAll) selectAll.checked = false;
 
@@ -122,6 +165,18 @@ function peOnProvinceChange(groupId) {
         return;
     }
 
+    // 选择省份后自动显示城市区域（不限城市复选框未勾选时）
+    if (!allCitiesCb || !allCitiesCb.checked) {
+        citySection.style.display = 'block';
+        const qtySection = document.getElementById(`${groupId}_qtySection`);
+        if (qtySection) qtySection.style.display = 'none';
+    }
+
+    const mode = getGroupMode(groupId);
+    const isInclude = mode === 'include';
+    if (hintSpan) {
+        hintSpan.textContent = isInclude ? '勾选城市后，右侧输入框填写该城市的数量' : '勾选要排除的城市';
+    }
     const cities = getCitiesByProvince(province);
     let html = '';
     cities.forEach((item, idx) => {
@@ -130,19 +185,25 @@ function peOnProvinceChange(groupId) {
             <label style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; font-size: 13px; cursor: pointer; background: ${isEven ? '#fafafa' : '#fff'}; border-radius: 3px; margin-bottom: 2px;">
                 <input type="checkbox" class="pe-city-cb" data-group="${groupId}" data-code="${item.cityCode}" onchange="peOnCityToggle('${groupId}')" style="width: auto; height: auto;">
                 <span style="min-width: 80px;">${item.city}</span>
-                <input type="number" class="pe-city-qty" data-group="${groupId}" data-code="${item.cityCode}" min="1" value="100" style="width: 70px; height: 24px; font-size: 12px; padding: 0 4px; border: 1px solid #dcdfe6; border-radius: 3px; display: none;">
+                ${isInclude ? `<input type="number" class="pe-city-qty" data-group="${groupId}" data-code="${item.cityCode}" min="1" value="100" style="width: 80px; height: 24px; font-size: 12px; padding: 0 4px; border: 1px solid #dcdfe6; border-radius: 3px; display: none;">` : ''}
             </label>
         `;
     });
     cityList.innerHTML = html;
 }
 
+function peOnProvinceChange(groupId) {
+    renderCityList(groupId);
+}
+
 function peToggleAllCities(groupId) {
     const selectAll = document.getElementById(`${groupId}_selectAll`);
     const checked = selectAll ? selectAll.checked : false;
+    const mode = getGroupMode(groupId);
     const cbs = document.querySelectorAll(`.pe-city-cb[data-group="${groupId}"]`);
     cbs.forEach(cb => {
         cb.checked = checked;
+        if (mode !== 'include') return;
         const code = cb.getAttribute('data-code');
         const qtyInput = document.querySelector(`.pe-city-qty[data-group="${groupId}"][data-code="${code}"]`);
         if (qtyInput) {
@@ -154,9 +215,12 @@ function peToggleAllCities(groupId) {
 function peOnCityToggle(groupId) {
     const cb = event.target;
     const code = cb.getAttribute('data-code');
-    const qtyInput = document.querySelector(`.pe-city-qty[data-group="${groupId}"][data-code="${code}"]`);
-    if (qtyInput) {
-        qtyInput.style.display = cb.checked ? 'inline-block' : 'none';
+    const mode = getGroupMode(groupId);
+    if (mode === 'include') {
+        const qtyInput = document.querySelector(`.pe-city-qty[data-group="${groupId}"][data-code="${code}"]`);
+        if (qtyInput) {
+            qtyInput.style.display = cb.checked ? 'inline-block' : 'none';
+        }
     }
 
     // 更新全选框状态
@@ -176,26 +240,65 @@ function getAllGroups() {
 
     groups.forEach(group => {
         const groupId = group.id;
-        const checkedCbs = document.querySelectorAll(`.pe-city-cb[data-group="${groupId}"]:checked`);
+        const provinceSel = document.getElementById(`${groupId}_province`);
+        const allCitiesCb = document.getElementById(`${groupId}_allCities`);
+        const defaultQtyInput = document.getElementById(`${groupId}_defaultQty`);
+        const modeSel = document.getElementById(`${groupId}_mode`);
 
-        if (checkedCbs.length === 0) {
-            return;
-        }
+        if (!provinceSel) return;
 
-        checkedCbs.forEach(cb => {
-            const cityCode = cb.getAttribute('data-code');
-            const qtyInput = document.querySelector(`.pe-city-qty[data-group="${groupId}"][data-code="${cityCode}"]`);
-            const quantity = qtyInput && qtyInput.value ? parseInt(qtyInput.value) : 0;
+        const province = provinceSel.value;
+        if (!province) return;
 
-            if (quantity <= 0) {
-                return;
-            }
+        const mode = modeSel ? modeSel.value : 'include';
+        const allCities = allCitiesCb ? allCitiesCb.checked : false;
 
+        if (allCities) {
+            // 不限城市：取该省份全部城市，使用默认数量
+            const defaultQty = defaultQtyInput && defaultQtyInput.value ? parseInt(defaultQtyInput.value) : 0;
+            if (defaultQty <= 0) return;
+
+            const cityCodes = getCitiesByProvince(province).map(c => c.cityCode);
             result.push({
-                cityCodes: [cityCode],
-                quantity: quantity
+                mode: mode,
+                province: province,
+                cityCodes: cityCodes,
+                quantity: defaultQty,
+                isPerCity: false
             });
-        });
+        } else {
+            // 限定具体城市
+            const checkedCbs = document.querySelectorAll(`.pe-city-cb[data-group="${groupId}"]:checked`);
+            if (checkedCbs.length === 0) return;
+
+            if (mode === 'exclude') {
+                // 排除模式：只需城市编码，不需要数量
+                const cityCodes = Array.from(checkedCbs).map(cb => cb.getAttribute('data-code'));
+                result.push({
+                    mode: mode,
+                    province: province,
+                    cityCodes: cityCodes,
+                    quantity: 0,
+                    isPerCity: false
+                });
+            } else {
+                // 包含模式：每个城市有自己的数量
+                checkedCbs.forEach(cb => {
+                    const cityCode = cb.getAttribute('data-code');
+                    const qtyInput = document.querySelector(`.pe-city-qty[data-group="${groupId}"][data-code="${cityCode}"]`);
+                    const quantity = qtyInput && qtyInput.value ? parseInt(qtyInput.value) : 0;
+                    if (quantity <= 0) return;
+
+                    result.push({
+                        mode: mode,
+                        province: province,
+                        cityCodes: [cityCode],
+                        quantity: quantity,
+                        isPerCity: true
+                    });
+                });
+            }
+        }
     });
 
     return result;
@@ -229,7 +332,7 @@ function generateSql() {
     }
 
     if (groups.length === 0) {
-        alert('请至少添加一个采购分组，并填写正确的采购数量');
+        alert('请至少添加一个采购分组，选择省份和城市并填写正确的数量');
         return;
     }
 
@@ -243,14 +346,23 @@ function generateSql() {
     const selects = [];
     groups.forEach((group) => {
         let cityCondition = '';
+
         if (group.cityCodes.length === 1) {
             cityCondition = `city_code = '${group.cityCodes[0]}'`;
         } else {
             cityCondition = `city_code in (${group.cityCodes.map(c => `'${c}'`).join(', ')})`;
         }
 
-        const sql = `select * from rs_phone_number where telecom = '${telecom}' and ${cityCondition} and ${levelCondition} and stock_id = ${stockId} and status = ${status} and yn = 1 limit ${group.quantity}`;
-        selects.push(sql);
+        // 排除模式：将条件取反，不加 limit
+        if (group.mode === 'exclude') {
+            cityCondition = cityCondition.replace(/^city_code = /, 'city_code != ')
+                .replace(/^city_code in /, 'city_code not in ');
+            const sql = `select * from rs_phone_number where telecom = '${telecom}' and ${cityCondition} and ${levelCondition} and stock_id = ${stockId} and status = ${status} and yn = 1`;
+            selects.push(sql);
+        } else {
+            const sql = `select * from rs_phone_number where telecom = '${telecom}' and ${cityCondition} and ${levelCondition} and stock_id = ${stockId} and status = ${status} and yn = 1 limit ${group.quantity}`;
+            selects.push(sql);
+        }
     });
 
     const wrappedSelects = selects.map(s => `(${s})`);
@@ -280,7 +392,7 @@ function peCopySqlToDbExecute() {
         dbSqlInput.value = sql;
     }
     if (typeof switchTab === 'function') {
-        switchTab('database');
+        navigator.clipboard.writeText(sql).then(() => alert('已复制到剪贴板'));
     }
 }
 

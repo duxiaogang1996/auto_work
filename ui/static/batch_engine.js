@@ -50,19 +50,19 @@ class BatchProcessor {
         if (_batchRunning) {
             if (_batchActiveKind === this.kind) {
                 _batchStopRequested = true;
-                addLog("已请求停止（将于当前号码处理完成后停止）");
+                addLog("已请求停止（将于当前号码处理完成后停止）", "warn");
             } else {
-                addLog("当前正在批处理，无法执行");
+                addLog("当前正在批处理，无法执行", "warn");
             }
             return;
         }
 
         _startBatch(this.kind);
-        addLog("===== 开始批处理：" + this.logTitle + " =====");
-        if (this.logDescription) addLog("-> " + this.logDescription);
+        addLog("===== 开始批处理：" + this.logTitle + " =====", "info");
+        if (this.logDescription) addLog("-> " + this.logDescription, "info");
 
         const total = this.getTotal ? this.getTotal() : 0;
-        if (total) addLog("-> 待处理号码总数：" + total);
+        if (total) addLog("-> 待处理号码总数：" + total, "info");
 
         if (this.renderHeadFn) this.renderHeadFn();
         showResults();
@@ -86,19 +86,19 @@ class BatchProcessor {
             done += 1;
             setStatus("执行中...（" + done + "/" + total + "）", "loading");
             addLog("---");
-            addLog("▶ 开始处理第 " + done + " / " + total + " 个号码：" + phone);
-            addLog("-> 请求接口：POST " + this.apiUrl);
+            addLog("▶ 开始处理第 " + done + " / " + total + " 个号码：" + phone, "info");
+            addLog("-> 请求接口：POST " + this.apiUrl, "info");
 
             const r = await _postJson(this.apiUrl, this.buildPayload(cookie, phone));
 
             if (r.parse_error) {
-                addLog("✗ 响应解析失败：" + r.parse_error);
+                addLog("✗ 响应解析失败：" + r.parse_error, "error");
                 results.push({ phone: phone, message: "响应解析失败：" + r.parse_error });
             } else {
-                addLog("-> HTTP 响应状态码：" + r.status);
+                addLog("-> HTTP 响应状态码：" + r.status, "info");
                 if (!r.ok || !r.data || !r.data.success) {
                     const msg = (r.data && r.data.message) ? r.data.message : "接口返回失败";
-                    addLog("✗ 接口执行失败：" + msg);
+                    addLog("✗ 接口执行失败：" + msg, "error");
                     results.push({ phone: phone, message: msg });
                 } else {
                     const row = (r.data.data && r.data.data[0]) ? r.data.data[0] : { phone: phone, message: "无返回数据" };
@@ -107,22 +107,24 @@ class BatchProcessor {
                 }
             }
 
-            // 渲染结果表格
+            // 渲染结果表格 + 摘要
             if (this.renderType === "balance_ledger") {
                 renderBalanceLedgerPivot(results);
             } else {
                 renderRows(results, this.renderType);
             }
+            renderResultSummary(results, this.renderType);
 
             this.removePhone(phone);
-            addLog("-> 已从输入手机号列表移除：" + phone);
-            addLog("-> 当前进度：已处理 " + done + " / " + total);
+            addLog("-> 已从输入手机号列表移除：" + phone, "info");
+            addLog("-> 当前进度：已处理 " + done + " / " + total, "info");
             await _sleep(0);
         }
 
         setStatus("完成", "ok");
-        addLog("===== 批处理完成：" + this.logTitle + " =====");
-        addLog("-> 总计处理号码：" + done);
+        addLog("===== 批处理完成：" + this.logTitle + " =====", "info");
+        addLog("-> 总计处理号码：" + done, "info");
         _endBatch();
+    }
     }
 }

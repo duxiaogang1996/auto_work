@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+
 import pymysql
 from pymysql.cursors import DictCursor
 from typing import Any
@@ -140,14 +142,12 @@ class DatabaseConnection:
         return statements
 
 
-_db_connection: DatabaseConnection | None = None
+_db_local = threading.local()
 
 
 def get_global_connection() -> DatabaseConnection | None:
-    global _db_connection
-    return _db_connection
+    return getattr(_db_local, "connection", None)
 
 
 def set_global_connection(conn: DatabaseConnection | None) -> None:
-    global _db_connection
-    _db_connection = conn
+    _db_local.connection = conn

@@ -28,7 +28,7 @@ function offerCopySqlToDbExecute() {
         dbSqlInput.value = sql;
     }
     if (typeof switchTab === 'function') {
-        switchTab('database');
+        navigator.clipboard.writeText(sql).then(() => alert('已复制到剪贴板'));
     }
 }
 
@@ -163,7 +163,7 @@ async function generateOfferSql() {
         });
         const result = await response.json();
         if (result.success) {
-            document.getElementById('offerSqlResult').value = result.sql;
+            document.getElementById('offerSqlResult').value = result.data;
         } else {
             alert('生成失败：' + (result.message || '未知错误'));
         }

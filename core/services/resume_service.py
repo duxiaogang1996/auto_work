@@ -42,11 +42,8 @@ class ResumeService(BatchPhoneService):
         )
 
     def _infer_reason_code(self, plan_name: str | None) -> str:
-        if plan_name and "电信" in plan_name:
-            return "81"
-        if plan_name and "联通" in plan_name:
-            return "91"
-        return "91"
+        from .reason_codes import ResumeReasonCodes
+        return ResumeReasonCodes.infer(plan_name)
 
     def _infer_tele_type(self, plan_name: str | None) -> str:
         if plan_name and "电信" in plan_name:

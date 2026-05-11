@@ -1,5 +1,39 @@
 // ===== 导出功能 =====
 
+function saveResultToFile() {
+    const table = document.getElementById("resultTable");
+    if (!table || table.style.display === "none") {
+        alert("当前没有可保存的结果");
+        return;
+    }
+    const thead = table.querySelector("thead");
+    const tbody = table.querySelector("tbody");
+    if (!thead || !tbody || tbody.rows.length === 0) {
+        alert("当前没有可保存的数据");
+        return;
+    }
+    const headers = Array.from(thead.querySelectorAll("th")).map(th => th.textContent.trim());
+    const rows = Array.from(tbody.querySelectorAll("tr")).map(tr => {
+        const obj = {};
+        Array.from(tr.querySelectorAll("td")).forEach((td, i) => {
+            obj[headers[i] || ("列" + i)] = td.textContent.trim();
+        });
+        return obj;
+    });
+    const now = new Date();
+    const yyyymmdd = now.getFullYear() + String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0");
+    const hhmmss = String(now.getHours()).padStart(2, "0") + String(now.getMinutes()).padStart(2, "0") + String(now.getSeconds()).padStart(2, "0");
+    const fileName = "执行结果_" + yyyymmdd + "_" + hhmmss + ".json";
+    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+    if (typeof addLog === "function") addLog("保存结果成功：" + fileName);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     // 通用下载 Excel 按钮
     const downloadBtn = document.getElementById("downloadExcelBtn");
