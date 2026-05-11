@@ -1,0 +1,1034 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>自动化控制台 - 综合业务</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="/static/vendor/xlsx.full.min.js"></script>
+</head>
+
+<body>
+    <div class="page">
+        <div class="header">
+            <div class="title">自动化控制台</div>
+            <div class="subtitle">综合业务处理与产品配置系统</div>
+            <button id="exitSystemBtn" onclick="exitSystem()" style="position: absolute; right: 15px; top: 15px; background: #f56c6c; color: white; border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer; font-size: 14px;">退出系统</button>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('business')">业务办理</div>
+            <div class="tab" onclick="switchTab('product')">指令配置</div>
+            <div class="tab" onclick="switchTab('package')">产品套餐</div>
+            <div class="tab" onclick="switchTab('offer')">销售品套餐</div>
+            <div class="tab" onclick="switchTab('phone_extract')">采购号码提取</div>
+            <div class="tab" onclick="switchTab('database')">数据库连接</div>
+        </div>
+
+        <div id="business" class="tab-content active">
+            <div class="card">
+                <div class="row">
+                    <div class="col">
+                        <label>Cookie（仅本次请求内存使用，不保存）</label>
+                        <textarea id="cookie" placeholder="粘贴 Cookie..."></textarea>
+                    </div>
+                </div>
+
+                <div class="row" style="margin-bottom: 5px;">
+                    <div class="col">
+                        <label>手机号（每行一个，支持逗号分隔）</label>
+                        <textarea id="phones" placeholder="167xxxxxxxx&#10;167xxxxxxxx"></textarea>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button id="uploadFileBtn"
+                                style="width: auto; padding: 6px 16px; height: 32px; font-size: 13px; background-color: #606266;">上传文件
+                                (Excel/CSV)</button>
+                            <input type="file" id="fileInput"
+                                accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                                style="display: none;">
+                            <span id="fileNameDisplay" style="font-size: 13px; color: #666;">未选择文件</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col">
+                        <label>选择功能</label>
+                        <select id="selectedFunction" style="height: 40px; font-size: 14px;" onchange="onFunctionChange()">
+                            <option value="recharge">补赠费 - 按号码执行赠费</option>
+                            <option value="suspend">停机筛号 - 查询余额/状态并筛选</option>
+                            <option value="cancel">撤单 - 查询可撤单后执行撤单</option>
+                            <option value="resume">开机 - 局方停机且余额≥0自动开机</option>
+                            <option value="cancel_account">销户校验 - 筛选余额≥0的可销户号码</option>
+                            <option value="balance">余额/状态查询 - 逐号查询余额状态</option>
+                            <option value="cdr">号码详单查询 - 查询通话/短信/上网详单</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row" id="funcParams" style="margin-top: 10px;"></div>
+
+                <div class="row" style="margin-top: 10px;">
+                    <div class="col">
+                        <button id="runSelectedBtn" style="width: 200px; height: 40px; font-size: 15px;">执行选中功能</button>
+                    </div>
+                </div>
+
+                <div id="status" class="status"></div>
+            </div>
+
+                <div class="card" id="logCard" style="display: none;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="font-weight: bold;">日志</div>
+                            <button id="stopRunBtn"
+                                style="width: auto; padding: 0; background: none; color: #f56c6c; border: none; font-size: 14px; font-weight: normal; text-decoration: underline; cursor: pointer;"
+                                disabled>中断执行</button>
+                        </div>
+                        <button id="clearLogBtn"
+                            style="width: auto; padding: 0; background: none; color: #1890ff; border: none; font-size: 14px; font-weight: normal; text-decoration: underline; cursor: pointer;">
+                            清空
+                        </button>
+                    </div>
+                    <pre id="logArea"
+                        style="margin: 0; max-height: 220px; overflow: auto; background: #0b1020; color: #e6e6e6; padding: 10px; border-radius: 8px; font-size: 12px; line-height: 1.4;"></pre>
+                </div>
+
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; display: none;"
+                        id="resultHeaderArea">
+                        <div style="font-weight: bold;">执行结果</div>
+                        <div style="display: flex; gap: 20px;">
+                            <button id="downloadExcelBtn"
+                                style="width: auto; padding: 0; background: none; color: #1890ff; border: none; font-size: 14px; font-weight: normal; text-decoration: underline; cursor: pointer;">下载成
+                                Excel</button>
+                            <button id="exportCancelAccountXlsBtn" onclick="exportCancelAccountXLS()"
+                                style="width: auto; padding: 0; background: none; color: #1890ff; border: none; font-size: 14px; font-weight: normal; text-decoration: underline; cursor: pointer; display: none;">下载可销户号码（.xls）</button>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <div id="resultEmpty" class="status">点击上方按钮执行后，这里会展示结果。</div>
+                        <table id="resultTable">
+                            <thead id="resultHead">
+                                <!-- 表头将由 JS 动态渲染 -->
+                            </thead>
+                            <tbody id="resultBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="product" class="tab-content">
+                <div class="card">
+                    <div class="form-section">
+                        <div class="input-group">
+                            <label>参考产品ID（输入后，下方输入框会自动生成参考SQL供您查询旧配置）</label>
+                            <input type="text" id="refProductId" placeholder="输入旧的 PRODUCT_ID，例如: P123456789">
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">
+                            1. 产品表 (CODE_PRODUCT)
+                            <div class="sql-hint"
+                                data-tpl="select * from crm_product.code_product where product_id='{id}';">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>产品名称 (PRODUCT_NAME)</label>
+                                <input type="text" id="PRODUCT_NAME">
+                            </div>
+                            <div class="col input-group">
+                                <label>产品描述 (PRODUCT_DESC)</label>
+                                <input type="text" id="PRODUCT_DESC">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>产品类型 (PRODUCT_TYPE)</label>
+                                <select id="PRODUCT_TYPE">
+                                    <option value="T">T - 传统产品</option>
+                                    <option value="C">C - 业务量产品</option>
+                                    <option value="R">R - 资源产品</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>产品价格 (PRODUCT_PRICE)</label>
+                                <input type="text" id="PRODUCT_PRICE">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>电信类型 (TELE_TYPE)</label>
+                                <select id="TELE_TYPE">
+                                    <option value="GSM">GSM</option>
+                                    <option value="CTC">CTC</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>子产品类型 (PROD_SUB_TYPE)</label>
+                                <select id="PROD_SUB_TYPE" onchange="toggleServiceSection()">
+                                    <option value="M">M - 主产品</option>
+                                    <option value="P">P - 资费产品</option>
+                                    <option value="S">S - 服务类</option>
+                                    <option value="B">B - 资费+服务类</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">
+                            2. 产品套餐属性表 (code_product_dinner_attr)
+                            <div class="sql-hint"
+                                data-tpl="select * from crm_product.code_product_dinner_attr where product_id='{id}';">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>产品资费类型 (PROD_PRICE_TYPE)</label>
+                                <select id="PROD_PRICE_TYPE">
+                                    <option value="00">00 - 标准资费</option>
+                                    <option value="01">01 - 月租</option>
+                                    <option value="02">02 - 最低消费</option>
+                                    <option value="03">03 - 返券</option>
+                                    <option value="04">04 - 资源型</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>产品级别 (PROD_LEVEL)</label>
+                                <select id="PROD_LEVEL">
+                                    <option value="00">00 - 主产品</option>
+                                    <option value="01">01 - 附属产品</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">
+                            3. 产品映射表 (info_product_mapping)
+                            <div class="sql-hint"
+                                data-tpl="select * from crm_product.info_product_mapping where product_id='{id}';">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>VOP对应产品编码 (MAPPING_VALUE)</label>
+                                <input type="text" id="MAPPING_VALUE">
+                            </div>
+                            <div class="col input-group">
+                                <label>VOP产品包类型 (VOP_PRODUCT_TYPE)</label>
+                                <select id="VOP_PRODUCT_TYPE">
+                                    <option value="1">1 - 基础</option>
+                                    <option value="2">2 - 特服</option>
+                                    <option value="3">3 - 附加</option>
+                                    <option value="4">4 - 增值</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>产品包折扣费用 (DISCOUNT_FEE)</label>
+                                <input type="text" id="DISCOUNT_FEE">
+                            </div>
+                            <div class="col input-group">
+                                <label>VOP对应产品包ID (MAPPING_PKG_VALUE)</label>
+                                <input type="text" id="MAPPING_PKG_VALUE">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="serviceSection" style="display: none;">
+                        <!-- 以下 3 个表是全自动生成的，无需填写 -->
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                4. 产品与服务包关系表 (rule_product_service_pkg) <span
+                                    style="color: #999; font-weight: normal; font-size: 14px;">(全自动生成，无需填写)</span>
+                                <div class="sql-hint"
+                                    data-tpl="select * from crm_product.rule_product_service_pkg where product_id='{id}';">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                5. 服务包表 (pkg_service) <span
+                                    style="color: #999; font-weight: normal; font-size: 14px;">(全自动生成，无需填写)</span>
+                                <div class="sql-hint"
+                                    data-tpl="select * from crm_product.pkg_service where service_pkg_id in (select service_pkg_id from crm_product.rule_product_service_pkg where product_id='{id}');">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                6. 服务包与服务关系表 (rule_service_pkg) <span
+                                    style="color: #999; font-weight: normal; font-size: 14px;">(全自动生成，无需填写)</span>
+                                <div class="sql-hint"
+                                    data-tpl="select * from crm_product.rule_service_pkg where service_pkg_id in (select service_pkg_id from crm_product.rule_product_service_pkg where product_id='{id}');">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                7. 服务表 (code_service)
+                                <div class="sql-hint"
+                                    data-tpl="select * from crm_product.code_service where service_id in (select service_id from crm_product.rule_service_pkg where service_pkg_id in (select service_pkg_id from crm_product.rule_product_service_pkg where product_id='{id}'));">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col input-group">
+                                    <label>服务类型 (SERVICE_TYPE)</label>
+                                    <input type="text" id="SERVICE_TYPE" placeholder="如 10(语音), 20(数据), 30(短信) 等">
+                                </div>
+                                <div class="col input-group">
+                                    <label>是否可单独开通 (IS_ONLY_OPEN)</label>
+                                    <select id="IS_ONLY_OPEN">
+                                        <option value="1" selected>1 - 不可以</option>
+                                        <option value="0">0 - 可以</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                8. 服务与停开原因规则表 (rule_reason_service)
+                                <div class="sql-hint"
+                                    data-tpl="select * from crm_pub.rule_reason_service where service in (select service_id from crm_product.rule_service_pkg where service_pkg_id in (select service_pkg_id from crm_product.rule_product_service_pkg where product_id='{id}'));">
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label>停开原因规则 (REASON_CODE)</label>
+                                <div class="checkbox-group" id="reasonCodeGroup">
+                                    <!-- JS 动态渲染 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="instructionSection" style="display: none;">
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                9. 服务指令表 (RULE_SERVICE_INST) <span
+                                    style="color: #999; font-weight: normal; font-size: 14px;">(根据下方映射规则自动生成)</span>
+                                <div class="sql-hint"
+                                    data-tpl="select * from CRM_PUB.RULE_SERVICE_INST where SERVICE_ID in (select service_id from crm_product.rule_service_pkg where service_pkg_id in (select service_pkg_id from crm_product.rule_product_service_pkg where product_id='{id}'));">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                10. 指令字典表 (code_inst) <span
+                                    style="color: #999; font-weight: normal; font-size: 14px;">(根据下方映射规则自动生成)</span>
+                                <div class="sql-hint"
+                                    data-tpl="select * from crm_pub.code_inst where INST_CODE in (select INST_CODE from CRM_PUB.RULE_SERVICE_INST where SERVICE_ID in (select service_id from crm_product.rule_service_pkg where service_pkg_id in (select service_pkg_id from crm_product.rule_product_service_pkg where product_id='{id}')));">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                11. VOP指令映射表 (COMM_GSM_MAPPING_EXTEND)
+                                <div class="sql-hint"
+                                    data-tpl="select * from crm_pub.COMM_GSM_MAPPING_EXTEND where INST_CODE in (select INST_CODE from CRM_PUB.RULE_SERVICE_INST where SERVICE_ID in (select service_id from crm_product.rule_service_pkg where service_pkg_id in (select service_pkg_id from crm_product.rule_product_service_pkg where product_id='{id}')));">
+                                </div>
+                            </div>
+                            <button class="btn-add" onclick="addInstructionRow()">+ 添加一条指令映射</button>
+                            <div id="instructionsContainer">
+                                <!-- JS 动态渲染 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <button id="generateBtn"
+                            style="width: 100%; padding: 12px; background: #52c41a; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: bold;">一键生成
+                            SQL</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div class="form-section-title" style="margin: 0;">生成的 SQL 语句</div>
+                        <div style="display: flex; gap: 10px;">
+                            <button onclick="copySql()" style="padding: 6px 12px; cursor: pointer;">一键复制</button>
+                            <button onclick="copySqlToDbExecute()" style="padding: 6px 12px; cursor: pointer; background: #fa8c16; color: white; border: none; border-radius: 4px;">复制到执行</button>
+                        </div>
+                    </div>
+                    <textarea id="sqlResult" readonly placeholder="点击生成按钮后，这里将显示 Oracle INSERT 语句..."></textarea>
+                </div>
+            </div>
+
+            <div id="package" class="tab-content">
+                <div class="card">
+                    <div class="form-section">
+                        <div class="input-group">
+                            <label>参考套餐ID（输入后，下方输入框会自动生成参考SQL供您查询旧配置）</label>
+                            <input type="text" id="pkg_refPackageId" placeholder="输入旧的 PACKAGE_ID，例如: PK123456789">
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">
+                            1. 套餐基本信息 (cme_product.cme_package_info)
+                            <div class="sql-hint"
+                                data-tpl="select * from cme_product.cme_package_info where package_id='{id}';">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>套餐名称 (PACKAGE_NAME)</label>
+                                <input type="text" id="PKG_PACKAGE_NAME">
+                            </div>
+                            <div class="col input-group">
+                                <label>套餐描述 (PACKAGE_DESC)</label>
+                                <input type="text" id="PKG_PACKAGE_DESC">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>电信类型 (TELE_TYPE)</label>
+                                <select id="PKG_TELE_TYPE">
+                                    <option value="GSM">GSM</option>
+                                    <option value="CTC">CTC</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>套餐类型 (PACKAGE_TYPE)</label>
+                                <select id="PKG_PACKAGE_TYPE">
+                                    <option value="1">1 - 主套餐</option>
+                                    <option value="2">2 - 附加套餐</option>
+                                    <option value="3">3 - 可选套餐</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>套餐价格 (PACKAGE_PRICE)</label>
+                                <input type="text" id="PKG_PACKAGE_PRICE" placeholder="单位：分">
+                            </div>
+                            <div class="col input-group">
+                                <label>有效月数 (EFFECT_MONTH)</label>
+                                <input type="text" id="PKG_EFFECT_MONTH" placeholder="例如: 12">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">
+                            2. 套餐产品关联 (cme_product.cme_package_product)
+                            <div class="sql-hint"
+                                data-tpl="select * from cme_product.cme_package_product where package_id='{id}';">
+                            </div>
+                        </div>
+                        <p style="margin: 0 0 10px 0; color: #666; font-size: 13px;">一个套餐可以包含多个产品，请点击下方"添加产品"按钮添加产品</p>
+                        <button class="btn-add" onclick="pkgAddProductRow()">+ 添加一个产品</button>
+                        <div id="pkgProductContainer">
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">
+                            3. 套餐规则配置 (cme_product.cme_package_rule)
+                            <div class="sql-hint"
+                                data-tpl="select * from cme_product.cme_package_rule where package_id='{id}';">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>生效方式 (EFF_TYPE)</label>
+                                <select id="PKG_EFF_TYPE">
+                                    <option value="0">0 - 立即生效</option>
+                                    <option value="1">1 - 下账期生效</option>
+                                    <option value="2">2 - 激活后生效</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>是否可退订 (CAN_REFUND)</label>
+                                <select id="PKG_CAN_REFUND">
+                                    <option value="1">是</option>
+                                    <option value="0">否</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>停开订退标识 (OPEN_ORDER_FLAG)</label>
+                                <select id="PKG_OPEN_ORDER_FLAG">
+                                    <option value="*">* - 不区分</option>
+                                    <option value="OS">OS - 停开</option>
+                                    <option value="OD">OD - 订退</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>信用度等级 (CREDIT_LEVEL)</label>
+                                <input type="text" id="PKG_CREDIT_LEVEL" value="1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <button id="pkgGenerateBtn"
+                            style="width: 100%; padding: 12px; background: #52c41a; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: bold;">一键生成
+                            SQL</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div class="form-section-title" style="margin: 0;">生成的 SQL 语句</div>
+                        <div style="display: flex; gap: 10px;">
+                            <button onclick="pkgCopySql()" style="padding: 6px 12px; cursor: pointer;">一键复制</button>
+                            <button onclick="pkgCopySqlToDbExecute()" style="padding: 6px 12px; cursor: pointer; background: #fa8c16; color: white; border: none; border-radius: 4px;">复制到执行</button>
+                        </div>
+                    </div>
+                    <textarea id="pkgSqlResult" readonly placeholder="点击生成按钮后，这里将显示 Oracle INSERT 语句..."></textarea>
+                </div>
+            </div>
+        </div>
+
+            <div id="offer" class="tab-content">
+                <div class="card">
+                    <div class="form-section">
+                        <div class="input-group">
+                            <label>参考销售品ID（输入后，下方生成参考SQL供您查询旧配置）</label>
+                            <input type="text" id="offer_refOfrId" placeholder="输入旧的 OFR_ID，例如: OF123456789">
+                        </div>
+                        <div id="offerRefSql"></div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">
+                            1. 销售品表 (crm_ofr.CODE_OFR)
+                            <div class="sql-hint"
+                                data-tpl="select * from crm_ofr.code_ofr where ofr_id='{id}';">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>销售品名称 (OFR_NAME)</label>
+                                <input type="text" id="OFR_NAME">
+                            </div>
+                            <div class="col input-group">
+                                <label>市场价格 (MARKET_PRICE) 单位：分</label>
+                                <input type="text" id="MARKET_PRICE" placeholder="例如: 5000 表示 50 元">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>销售品子类型 (OFR_SUB_TYPE)</label>
+                                <select id="OFR_SUB_TYPE">
+                                    <option value="1101">1101 - 主销售品</option>
+                                    <option value="1102">1102 - 附属销售品</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>电信类型 (TELE_TYPE)</label>
+                                <select id="TELE_TYPE">
+                                    <option value="GSM">GSM - 联通</option>
+                                    <option value="CTC">CTC - 电信</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>群组销售品标识 (GROUP_FLAG)</label>
+                                <select id="GROUP_FLAG">
+                                    <option value="0">0 - 否</option>
+                                    <option value="1">1 - 是</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>群组类型 (GROUP_TYPE)</label>
+                                <input type="text" id="GROUP_TYPE" placeholder="仅 GROUP_FLAG=1 时需要填写">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>销售品模式类型 (OFR_MODE_TYPE)</label>
+                                <select id="OFR_MODE_TYPE">
+                                    <option value="">- 空 (资源池套餐)</option>
+                                    <option value="1">1 - 模组套餐</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>销售品模式子类型 (SUB_MODE_TYPE)</label>
+                                <select id="SUB_MODE_TYPE">
+                                    <option value="">- 空</option>
+                                    <option value="10">10 - 全国模组</option>
+                                    <option value="11">11 - 本地模组</option>
+                                    <option value="12">12 - MINI模组</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>失效类型 (EXP_TYPE)</label>
+                                <select id="EXP_TYPE">
+                                    <option value="">- 空</option>
+                                    <option value="0">0 - 固定时间</option>
+                                    <option value="1">1 - 按天</option>
+                                    <option value="2">2 - 按月</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>失效偏移量 (EXP_VALUE)</label>
+                                <input type="text" id="EXP_VALUE" placeholder="根据 EXP_TYPE 填写">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>可重复订购标识 (REPEAT_FLAG)</label>
+                                <select id="REPEAT_FLAG">
+                                    <option value="">- 空</option>
+                                    <option value="0">0 - 不可重复订购</option>
+                                    <option value="1">1 - 可重复订购</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>月租价格 (OFR_RENT) 单位：分</label>
+                                <input type="text" id="OFRRENT" placeholder="例如: 5000">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>华为OTA销售品详细说明 (OTA_OFR_DESC)</label>
+                                <input type="text" id="OTA_OFR_DESC">
+                            </div>
+                            <div class="col input-group">
+                                <label>OTA套餐优势描述 (OTA_ADVANTAGE_DESC)</label>
+                                <input type="text" id="OTA_ADVANTAGE_DESC">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>通话时长 (CALL_TIME) 单位：分</label>
+                                <input type="text" id="CALL_TIME">
+                            </div>
+                            <div class="col input-group">
+                                <label>通用流量 (FLOW) 单位：MB</label>
+                                <input type="text" id="FLOW">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>套内短信条数 (SMS_NUM)</label>
+                                <input type="text" id="SMS_NUM">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>套外语音收费标准 (EXT_CALL_STANDARD)</label>
+                                <input type="text" id="EXT_CALL_STANDARD">
+                            </div>
+                            <div class="col input-group">
+                                <label>套外流量收费标准 (EXT_FLOW_STANDARD)</label>
+                                <input type="text" id="EXT_FLOW_STANDARD">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>套外短信收费标准 (EXT_SMS_STANDARD)</label>
+                                <input type="text" id="EXT_SMS_STANDARD">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">
+                            2. 产品表 (crm_product.CODE_PRODUCT)
+                            <div class="sql-hint"
+                                data-tpl="select * from crm_product.code_product where product_id in (select product_id from crm_ofr.rule_ofr_product where ofr_id='{id}');">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>产品类型 (PRODUCT_TYPE)</label>
+                                <select id="PRODUCT_TYPE">
+                                    <option value="T">T - 传统产品</option>
+                                    <option value="C">C - 业务量产品</option>
+                                    <option value="R">R - 资源产品</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>子产品类型 (PROD_SUB_TYPE)</label>
+                                <select id="PROD_SUB_TYPE">
+                                    <option value="M">M - 主产品</option>
+                                    <option value="P">P - 资费产品</option>
+                                    <option value="S">S - 服务类</option>
+                                    <option value="B">B - 资费+服务类</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">
+                            3. 套餐产品属性表 (crm_product.CODE_PRODUCT_DINNER_ATTR)
+                            <div class="sql-hint"
+                                data-tpl="select * from crm_product.code_product_dinner_attr where product_id in (select product_id from crm_ofr.rule_ofr_product where ofr_id='{id}');">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>产品资费类型 (PROD_PRICE_TYPE)</label>
+                                <select id="PROD_PRICE_TYPE">
+                                    <option value="00">00 - 标准资费</option>
+                                    <option value="01">01 - 月租</option>
+                                    <option value="02">02 - 最低消费</option>
+                                    <option value="03">03 - 返券</option>
+                                    <option value="04">04 - 资源型</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>产品级别 (PROD_LEVEL)</label>
+                                <select id="PROD_LEVEL">
+                                    <option value="00">00 - 主产品</option>
+                                    <option value="01">01 - 附属产品</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">
+                            4. 月租相关配置 (router 表)
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>月租类型 (RENT_TYPE)</label>
+                                <select id="RENT_TYPE">
+                                    <option value="10131">10131 - 月租事件</option>
+                                    <option value="20131">20131 - 低消事件</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>整月扣费起始点 (FULL_NUM)</label>
+                                <select id="FULL_NUM">
+                                    <option value="1">1 - 开户时间</option>
+                                    <option value="2">2 - 用户激活时间</option>
+                                    <option value="3">3 - 套餐生效时间</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>首月模式表达式 (OFFSET_EXPRESSION)</label>
+                                <input type="text" id="OFFSET_EXPRESSION" placeholder="例如: 0*-0">
+                            </div>
+                            <div class="col input-group">
+                                <label>状态引用模式 (STATE_REF_MODE)</label>
+                                <select id="STATE_REF_MODE">
+                                    <option value="1">1 - 整月生效才收取</option>
+                                    <option value="2">2 - 当月生效过就收取</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>用户状态组 (STATE_GROUP)</label>
+                                <input type="text" id="STATE_GROUP" placeholder="例如: 1">
+                            </div>
+                            <div class="col input-group">
+                                <label>其他表达式 (OTHER_EXPRESSION)</label>
+                                <input type="text" id="OTHER_EXPRESSION" placeholder="例如: 1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">
+                            5. 月租费率表 (router.RENT_RATE)
+                            <div class="sql-hint"
+                                data-tpl="select * from router.rent_rate where rate_id in (select rate_id from router.rent_policy where rent_policy_id in (select rent_policy_id from router.rent_plan where rent_plan_id in (select rent_plan_id from router.rent_offer where product_id in (select product_id from crm_ofr.rule_ofr_product where ofr_id='{id}'))));">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>费用项 (FEE_CODE)</label>
+                                <input type="text" id="FEE_CODE" placeholder="例如: 100001">
+                            </div>
+                            <div class="col input-group">
+                                <label>周期单位 (CYCLE_UNIT)</label>
+                                <select id="CYCLE_UNIT">
+                                    <option value="10">10 - 按天</option>
+                                    <option value="20" selected>20 - 按月</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>周期数 (CYCLES)</label>
+                                <input type="text" id="CYCLES" value="1">
+                            </div>
+                            <div class="col input-group">
+                                <label>费率 (RATE) 单位：厘</label>
+                                <input type="text" id="RATE" placeholder="例如: 50000 表示 50 元">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>分摊标志 (PART_FLAG)</label>
+                                <select id="PART_FLAG">
+                                    <option value="0" selected>0 - 不分摊</option>
+                                    <option value="1">1 - 分摊</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>描述 (COMMENTS)</label>
+                                <input type="text" id="RATE_COMMENTS">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="HAS_PRESENT" style="width: auto; height: auto;">
+                                <span>6. 配置赠送资源 (router.RULE_PRESENT)</span>
+                            </label>
+                            <div class="sql-hint"
+                                data-tpl="select * from router.rule_present where present_rule_id in (select present_rule_id from router.rent_policy where rent_policy_id in (select rent_policy_id from router.rent_plan where rent_plan_id in (select rent_plan_id from router.rent_offer where product_id in (select product_id from crm_ofr.rule_ofr_product where ofr_id='{id}'))));">
+                            </div>
+                        </div>
+                        <div id="presentSection">
+                            <div class="row">
+                                <div class="col input-group">
+                                    <label>账本类型 (BALANCE_TYPE)</label>
+                                    <input type="text" id="BALANCE_TYPE" placeholder="例如: 1">
+                                </div>
+                                <div class="col input-group">
+                                    <label>赠送量类型 (AMOUNT_TYPE)</label>
+                                    <select id="AMOUNT_TYPE">
+                                        <option value="1" selected>1 - 固定值</option>
+                                        <option value="2">2 - 可变值</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col input-group">
+                                    <label>赠送量 (AMOUNT)</label>
+                                    <input type="text" id="AMOUNT">
+                                </div>
+                                <div class="col input-group">
+                                    <label>周期类型 (CYCLE_TYPE)</label>
+                                    <select id="CYCLE_TYPE">
+                                        <option value="1" selected>1 - 月</option>
+                                        <option value="2">2 - 天</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col input-group">
+                                    <label>周期值 (CYCLE_AMOUNT)</label>
+                                    <input type="text" id="CYCLE_AMOUNT">
+                                </div>
+                                <div class="col input-group">
+                                    <label>偏移量 (OFFSET)</label>
+                                    <input type="text" id="OFFSET">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col input-group">
+                                    <label>合并账本 (RULE_PRESENT_FLAG)</label>
+                                    <select id="RULE_PRESENT_FLAG">
+                                        <option value="1" selected>1 - 合并</option>
+                                        <option value="2">2 - 不合并</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <button id="offerGenerateBtn"
+                            style="width: 100%; padding: 12px; background: #52c41a; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: bold;">一键生成
+                            SQL</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div class="form-section-title" style="margin: 0;">生成的 SQL 语句</div>
+                        <div style="display: flex; gap: 10px;">
+                            <button onclick="offerCopySql()" style="padding: 6px 12px; cursor: pointer;">一键复制</button>
+                            <button onclick="offerCopySqlToDbExecute()" style="padding: 6px 12px; cursor: pointer; background: #fa8c16; color: white; border: none; border-radius: 4px;">复制到执行</button>
+                        </div>
+                    </div>
+                    <textarea id="offerSqlResult" readonly placeholder="点击生成按钮后，这里将显示 Oracle INSERT 语句..."></textarea>
+                </div>
+            </div>
+
+            <div id="phone_extract" class="tab-content">
+                <div class="card">
+                    <div class="form-section">
+                        <div class="form-section-title">采购号码提取条件</div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>制式 (telecom)</label>
+                                <select id="peTelecom">
+                                    <option value="GSM">GSM - 联通</option>
+                                    <option value="CTC">CTC - 电信</option>
+                                    <option value="CMCC">CMCC - 移动</option>
+                                </select>
+                            </div>
+                            <div class="col input-group">
+                                <label>号码等级 (phone_level)</label>
+                                <div style="display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 0;" id="pePhoneLevelGroup">
+                                    <!-- 动态生成 -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>库存ID (stock_id)</label>
+                                <input type="number" id="peStockId" value="0" style="width: 100%; height: 36px; padding: 0 8px; font-size: 14px; border: 1px solid #dcdfe6; border-radius: 4px;">
+                            </div>
+                            <div class="col input-group">
+                                <label>状态 (status)</label>
+                                <input type="number" id="peStatus" value="0" style="width: 100%; height: 36px; padding: 0 8px; font-size: 14px; border: 1px solid #dcdfe6; border-radius: 4px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>采购区域分组（每个组独立配置省市和数量）</span>
+                            <button onclick="peAddGroup()" style="padding: 6px 12px; background: #52c41a; color: white; border: none; border-radius: 4px; font-size: 13px; cursor: pointer;">+ 添加分组</button>
+                        </div>
+                        <div id="peGroupsContainer" style="margin-top: 10px;">
+                            <!-- 动态生成分组 -->
+                        </div>
+                    </div>
+
+                        <div class="row" style="margin-top: 15px;">
+                            <div class="col">
+                                <button id="peGenerateBtn"
+                                    style="width: 100%; padding: 12px; background: #52c41a; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: bold;">生成查询SQL
+                                </button>
+                            </div>
+                        </div>
+                </div>
+
+                <div class="card">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div class="form-section-title" style="margin: 0;">生成的 SQL 语句</div>
+                        <div style="display: flex; gap: 10px;">
+                            <button onclick="peCopySql()" style="padding: 6px 12px; cursor: pointer;">一键复制</button>
+                            <button onclick="peCopySqlToDbExecute()" style="padding: 6px 12px; cursor: pointer; background: #fa8c16; color: white; border: none; border-radius: 4px;">复制到执行</button>
+                        </div>
+                    </div>
+                    <textarea id="peSqlResult" readonly placeholder="选择条件后点击生成按钮，这里将显示查询SQL..."></textarea>
+                </div>
+            </div>
+
+            <div id="database" class="tab-content">
+                <div class="card">
+                    <div class="form-section">
+                        <div class="form-section-title">MySQL 数据库连接配置</div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>数据库地址 (Host)</label>
+                                <input type="text" id="dbHost" value="localhost">
+                            </div>
+                            <div class="col input-group">
+                                <label>端口 (Port)</label>
+                                <input type="number" id="dbPort" value="3306">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>用户名 (User)</label>
+                                <input type="text" id="dbUser" value="root">
+                            </div>
+                            <div class="col input-group">
+                                <label>密码 (Password)</label>
+                                <input type="password" id="dbPassword" placeholder="输入密码">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col input-group">
+                                <label>数据库名 (Database)</label>
+                                <input type="text" id="dbName" placeholder="选择要连接的数据库（可选）">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col" style="display: flex; gap: 15px; align-items: center;">
+                                <div id="dbStatus" style="font-size: 14px; color: #999;">未连接</div>
+                            </div>
+                        </div>
+                        <div class="row" style="margin-top: 15px;">
+                            <div class="col" style="display: flex; gap: 15px;">
+                                <button id="dbConnectBtn" onclick="dbConnect()"
+                                    style="width: 150px; padding: 10px; background: #52c41a; color: white; border: none; border-radius: 4px; font-size: 15px; cursor: pointer; font-weight: bold;">连接数据库
+                                </button>
+                                <button id="dbDisconnectBtn" onclick="dbDisconnect()"
+                                    style="width: 150px; padding: 10px; background: #f56c6c; color: white; border: none; border-radius: 4px; font-size: 15px; cursor: pointer; font-weight: bold;">断开连接
+                                </button>
+                                <button id="dbCheckStatusBtn" onclick="dbCheckStatus()"
+                                    style="width: 150px; padding: 10px; background: #1890ff; color: white; border: none; border-radius: 4px; font-size: 15px; cursor: pointer; font-weight: bold;">检查状态
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="form-section-title">
+                        直接执行 SQL
+                    </div>
+                    <textarea id="dbSqlInput" placeholder="在此输入 SQL 语句，多条语句用分号分隔..."
+                        style="width: 100%; min-height: 200px; padding: 10px; box-sizing: border-box; border: 1px solid #dcdfe6; border-radius: 4px; font-size: 13px; font-family: monospace;"></textarea>
+                    <div class="row" style="margin-top: 15px;">
+                        <div class="col">
+                            <button id="dbExecuteBtn" onclick="dbExecute()"
+                                style="width: 200px; padding: 10px; background: #fa8c16; color: white; border: none; border-radius: 4px; font-size: 15px; cursor: pointer; font-weight: bold;">执行 SQL
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" id="dbResultCard" style="display: none;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div style="font-weight: bold;">执行结果</div>
+                        <button id="clearDbResultBtn"
+                            style="width: auto; padding: 0; background: none; color: #1890ff; border: none; font-size: 14px; font-weight: normal; text-decoration: underline; cursor: pointer;"
+                            onclick="clearDbResult()">清空</button>
+                    </div>
+                    <div id="dbResultArea"
+                        style="margin: 0; max-height: 400px; overflow: auto; background: #0b1020; color: #e6e6e6; padding: 10px; border-radius: 8px; font-size: 12px; line-height: 1.4; white-space: pre-wrap;"></div>
+                </div>
+            </div>
+        </div>
+
+        <script src="/static/utils.js"></script>
+        <script src="/static/batch_engine.js"></script>
+        <script src="/static/result_rendering.js"></script>
+        <script src="/static/ui_controller.js"></script>
+        <script src="/static/feature_processors.js"></script>
+        <script src="/static/file_upload.js"></script>
+        <script src="/static/export.js"></script>
+        <script src="/static/product_sql.js"></script>
+        <script src="/static/package_sql.js"></script>
+        <script src="/static/offer_sql.js"></script>
+        <script src="/static/phone_extract.js"></script>
+        <script src="/static/database.js"></script>
+</body>
+
+</html>
