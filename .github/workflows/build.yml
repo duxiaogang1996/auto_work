@@ -21,18 +21,16 @@ jobs:
 
     - name: Install dependencies
       run: |
-        cd project_app
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
     - name: Build EXE with PyInstaller
       run: |
-        cd project_app
-        pyinstaller --name "自动化控制台" --noconfirm --onedir --windowed --add-data "ui;ui/" --paths "." main.py
+        pyinstaller --name "自动化控制台" --noconfirm --onedir --windowed --add-data "ui;ui/" --add-data "docs;docs/" --paths "." main.py
 
     - name: Zip output
       run: |
-        Compress-Archive -Path "project_app\dist\自动化控制台" -DestinationPath "自动化控制台.zip"
+        Compress-Archive -Path "dist\自动化控制台" -DestinationPath "自动化控制台.zip"
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
@@ -42,8 +40,11 @@ jobs:
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/v')
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+        generate_release_notes: true
         files: 自动化控制台.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
