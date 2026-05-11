@@ -126,5 +126,4 @@ class BatchProcessor {
         addLog("-> 总计处理号码：" + done, "info");
         _endBatch();
     }
-    }
 }
