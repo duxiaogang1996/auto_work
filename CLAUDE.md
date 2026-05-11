@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-这是一个基于 Flask 的自动化控制台应用，提供京东 BossWeb 系统的批量业务操作功能，包括补赠费、停机筛号、撤单、开机、销户校验、余额查询、详单查询等。同时提供产品指令配置功能，支持产品、套餐、销售品的 Oracle SQL 自动生成，以及采购号码提取和 MySQL 数据库连接执行。应用通过 Web UI 交互，支持手机号批量处理，并可打包为 Windows EXE 独立运行。
+这是一个基于 Flask 的自动化控制台应用，提供京东 BossWeb 系统的批量业务操作功能，包括补赠费、停机筛号、撤单、开机、销户校验、余额查询、详单查询等。同时提供产品指令配置功能，支持产品、套餐、销售品的 Oracle SQL 自动生成，以及采购号码提取。应用通过 Web UI 交互，支持手机号批量处理，并可打包为 Windows EXE 独立运行。
 
 ## 运行与开发
 
@@ -21,6 +21,13 @@ python main.py
 ```bash
 PORT=5001 python main.py
 ```
+
+### Windows 用户直接使用
+Windows 用户无需安装 Python，直接前往 GitHub Releases 下载最新 EXE：
+
+https://github.com/duxiaogang1996/auto_work/releases
+
+下载后解压，双击运行即可在浏览器中使用。每次功能更新后会重新打包发布，用户下载新版覆盖即可。
 
 ### PyInstaller 打包（Windows）
 在项目根目录执行：
@@ -37,7 +44,12 @@ pyinstaller 自动化控制台.spec
 打包后产物在 `dist/自动化控制台/` 目录。`--add-data` 参数在 Windows 上使用分号分隔符，macOS/Linux 上需改为冒号。
 
 ### GitHub Actions 自动构建
-推送 `v*` 格式 tag 时会触发 `.github/workflows/build.yml`，在 Windows runner 上自动构建 EXE 并上传为 Release 附件。
+推送 `v*` 格式 tag 时会触发 `.github/workflows/build.yml`，在 Windows runner 上自动构建 EXE 并上传为 Release 附件：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
 
 ## 架构概览
 
@@ -59,11 +71,10 @@ pyinstaller 自动化控制台.spec
 │   ├── balance.py             # /api/balance/*
 │   ├── cdr.py                 # /api/cdr/*
 │   ├── sql.py                 # /api/sql/* (product/package/offer SQL 生成)
-│   └── database.py            # /api/database/* (MySQL 连接/执行)
+│   └── login_helper.py        # /api/login/* (浏览器自动登录获取Cookie)
 ├── core/
 │   ├── utils.py               # 纯工具函数（parse_phones, normalize_cookie）
 │   ├── base.py                # BatchPhoneService 抽象基类
-│   ├── database.py            # MySQL 连接管理（全局连接池）
 │   ├── result_serializers.py  # dataclass → dict 序列化
 │   ├── api/                   # 外部 API 客户端层
 │   │   ├── bossweb_client.py  # BossWeb HTTP 客户端（所有底层接口）
@@ -83,20 +94,20 @@ pyinstaller 自动化控制台.spec
 ├── docs/
 │   └── city_code.csv           # 省份城市编码表（采购号码提取用）
 └── ui/
-    ├── templates/index.html    # 单页应用（6 个 Tab）
+    ├── templates/index.html    # 单页应用（5 个 Tab）
     └── static/                 # JS 模块拆分
         ├── utils.js            # 工具函数
         ├── batch_engine.js     # BatchProcessor 批处理引擎
         ├── result_rendering.js # 表格渲染
         ├── feature_processors.js # 功能入口 + BatchProcessor 实例
         ├── file_upload.js      # Excel/CSV 文件上传
-        ├── export.js           # Excel 导出
+        ├── export.js           # Excel 导出 / JSON 保存
         ├── ui_controller.js    # Tab 切换 / 功能参数面板
         ├── product_sql.js      # 产品指令配置
-        ├── package_sql.js      # 产品套餐 SQL
+        ├── package_sql.js      # 产品指令 SQL
         ├── offer_sql.js        # 销售品 SQL
         ├── phone_extract.js    # 采购号码提取
-        └── database.js         # 数据库连接/执行
+        └── login_helper.js     # 浏览器登录获取 Cookie
 ```
 
 ### 前端 Tab 结构
@@ -105,10 +116,9 @@ pyinstaller 自动化控制台.spec
 |--------|------|------|
 | business | 业务办理 | 7 种批量业务操作 |
 | product | 指令配置 | 产品 Oracle SQL 生成 |
-| package | 产品套餐 | 套餐 SQL 生成 |
+| package | 产品指令 | 套餐 SQL 生成 |
 | offer | 销售品套餐 | 销售品 SQL 生成 |
 | phone_extract | 采购号码提取 | 按省市/等级/数量提取号码 SQL |
-| database | 数据库连接 | MySQL 连接和 SQL 执行 |
 
 ### 核心设计模式
 
@@ -130,7 +140,7 @@ pyinstaller 自动化控制台.spec
 
 ### Cookie 处理
 
-Cookie 支持多种格式输入（纯 cookie、curl 命令、多行 headers），通过 `core/utils.py` 中的 `normalize_cookie` 函数统一解析。
+Cookie 支持多种格式输入（纯 cookie、curl 命令、多行 headers），通过 `core/utils.py` 中的 `normalize_cookie` 函数统一解析。也支持通过 Selenium 浏览器自动登录 BossWeb 系统后自动提取 Cookie 填充。
 
 ### PyInstaller 兼容性
 
