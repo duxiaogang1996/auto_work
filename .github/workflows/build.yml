@@ -1,0 +1,40 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Build frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build EXE
+        run: pyinstaller tools/自动化控制台.spec
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 自动化控制台-Windows
+          path: dist/自动化控制台/

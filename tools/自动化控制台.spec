@@ -5,7 +5,7 @@ a = Analysis(
     ['src/main.py'],
     pathex=['src'],
     binaries=[],
-    datas=[('src/ui', 'ui/'), ('docs', 'docs/')],
+    datas=[('src/ui', 'ui/'), ('src/docs', 'docs/')],
     hiddenimports=['pymysql', 'flask', 'xlwt', 'requests', 'selenium', 'webdriver_manager'],
     hookspath=[],
     hooksconfig={},
