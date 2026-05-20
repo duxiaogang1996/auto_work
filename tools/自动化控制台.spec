@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['src/main.py'],
-    pathex=['src'],
+    ['../src/main.py'],
+    pathex=['../src'],
     binaries=[],
-    datas=[('src/ui', 'ui/'), ('src/docs', 'docs/')],
+    datas=[('../src/ui', 'ui/'), ('../src/docs', 'docs/')],
     hiddenimports=['pymysql', 'flask', 'xlwt', 'requests', 'selenium', 'webdriver_manager'],
     hookspath=[],
     hooksconfig={},
@@ -25,7 +25,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -38,7 +38,7 @@ coll = COLLECT(
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name='自动化控制台',
 )
