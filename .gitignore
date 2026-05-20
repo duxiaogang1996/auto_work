@@ -4,26 +4,54 @@ __pycache__/
 *$py.class
 *.so
 .Python
-*.egg-info/
-dist/
 build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
 
 # Virtual environments
 venv/
-.env/
+env/
+ENV/
+.venv
 
 # IDE
-.trae/
 .vscode/
 .idea/
-
-# Claude Code (local settings only)
-.claude/settings.local.json
-.claude/sessions/
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
 
-# PyInstaller
-*.spec
+# Project
+build/
+*.log
+*.tmp
+
+# Node
+node_modules/
+
+# Vite dev dist (production dist at src/ui/static/dist/ is committed)
+src/ui/static/dist/.vite/
+
+# Database backups
+BSS 表结构/
+临时文件/
+*.xlsx
